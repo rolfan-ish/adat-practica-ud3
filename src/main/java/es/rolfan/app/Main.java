@@ -1,9 +1,12 @@
 package es.rolfan.app;
 
+import com.opencsv.CSVReader;
 import es.rolfan.menu.Entry;
 import es.rolfan.menu.Menu;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.sql.Connection;
@@ -38,14 +41,16 @@ public class Main extends Menu {
         }
 
         System.out.println("Introduce el nombre del archivo");
-        var csv = new File(sc.next());
-        if (!csv.exists() || !csv.isFile()) {
+        var archCsv = new File(sc.next());
+        if (!archCsv.isFile()) {
             System.err.println("El archivo csv no existe");
             return;
         }
 
-        try (var st = conn.createStatement()) {
+        try (var st = conn.createStatement();
+             var csv = new CSVReader(new FileReader(archCsv))) {
             st.executeUpdate(Files.readString(new File(url.getFile()).toPath()));
+
             // TODO: Cargar archivo csv
         } catch (IOException e) {
             System.err.println(e.getMessage());
