@@ -1,24 +1,37 @@
 package menu;
 
-import java.util.Scanner;
-import java.util.function.Function;
+import java.lang.reflect.Method;
+import java.util.*;
+import java.util.stream.Collectors;
 
-public record Menu(Function<Integer, Integer> indexer, MenuEntry...entries) implements Runnable {
-    private static Scanner sc = new Scanner(System.in);
+public abstract class Menu {
+    private final ArrayList<Method> ms;
+    private final String msg;
+    private final Scanner sc = new Scanner(System.in);
 
-    public Menu(MenuEntry...entries) {
-        this(i -> i, entries);
+    public Menu() {
+        ms = Arrays.stream(getClass().getDeclaredMethods())
+                .filter(m -> m.isAnnotationPresent(Entry.class))
+                .sorted(Comparator.comparingInt(m -> m.getAnnotation(Entry.class).position()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        msg = ms.stream().map(m -> m.getAnnotation(Entry.class))
+                .map(e -> e.position() + ". " + e.description())
+                .collect(Collectors.joining("\n"));
     }
 
-    @Override
-    public void run() {
-        for (var i = 0; i < entries.length; i++) {
-            var index = indexer.apply(i);
-            System.out.println(index + ". " + entries[index].desc());
-        }
-        var sel = indexer.apply(sc.nextInt());
-        if (sel < 0 || sel > entries.length - 1)
-            return;
-        entries[sel].func().run();
+    private void runMenu() throws Exception {
+        System.out.println(msg);
+        var sel = sc.nextInt();
+        if (sel < 0 || sel > ms.size() - 1) return;
+        ms.get(sel).setAccessible(true);
+        ms.get(sel).invoke(this);
+    }
+
+    public final void start() throws Exception {
+        runMenu();
+    }
+
+    public final void runMenuForever() throws Exception {
+        while (true) runMenu();
     }
 }
