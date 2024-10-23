@@ -1,4 +1,4 @@
-package menu;
+package es.rolfan.menu;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

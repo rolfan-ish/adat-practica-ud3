@@ -11,7 +11,7 @@ public class Main extends Menu {
 
     @Entry(position = 1, description = "Crear BBDD MySQL")
     private void crearBBDDMySQL() {
-        getClass().getResource("")
+        System.out.println(getClass().getResource("resources/olimpiadas.db.sql"));
     }
 
     public static void main(String[] args) throws Exception {

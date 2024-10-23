@@ -1,4 +1,4 @@
-package menu;
+package es.rolfan.menu;
 
 import java.lang.reflect.Method;
 import java.util.*;
