@@ -4,7 +4,7 @@ import com.opencsv.bean.CsvToBeanBuilder;
 import es.rolfan.dao.csv.EntradaAtleta;
 import es.rolfan.dao.sql.*;
 import es.rolfan.menu.Entry;
-import es.rolfan.menu.Menu;
+import es.rolfan.menu.LazyCall;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistry;
@@ -14,8 +14,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 public class Main {
     private static final StandardServiceRegistry registry;
@@ -34,9 +33,10 @@ public class Main {
         }
     }
 
-    public static void main(String[] args) throws Throwable {
+    public static void main(String[] args) {
         // new Menu(new Main()).runMenuForever();
-        new Main().crearBBDDMySQL(new FileReader("/home/aimar/Downloads/ficheros_csv_xml_sql/athlete_events.csv"));
+        var archivoCsv = Main.class.getResource("athlete_events.csv");
+        new Main().crearBBDDMySQL(new LazyCall<>(() -> new FileReader(archivoCsv.getFile())));
     }
 
     @Entry(position = 0, description = "Salir del programa")
@@ -45,17 +45,16 @@ public class Main {
     }
 
     @Entry(position = 1, description = "Crear BBDD MySQL")
-    private void crearBBDDMySQL(FileReader csv) {
-        if (csv == null) {
-            System.err.println("El archivo csv no existe");
-            return;
-        }
+    private void crearBBDDMySQL(Supplier<FileReader> csv) {
         var url = getClass().getResource("olimpiadas.sql");
         if (url == null) {
             System.err.println("Falta el archivo sql");
             return;
         }
-
+        if (csv.get() == null) {
+            System.err.println("El archivo csv no existe");
+            return;
+        }
 
         factory.inTransaction(s -> {
             try {
@@ -67,53 +66,81 @@ public class Main {
                 }
 
                 // Extraer los datos del csv
-                var elems = new CsvToBeanBuilder<EntradaAtleta>(csv).withType(EntradaAtleta.class).withFilter(fields -> {
+                var elems = new CsvToBeanBuilder<EntradaAtleta>(csv.get()).withType(EntradaAtleta.class).withFilter(fields -> {
                     for (var i = 0; i < fields.length; i++)
                         if (fields[i].equals("NA"))
                             fields[i] = null;
                     return true;
                 }).build();
 
-                // Insertar los datos en la BBDD
+                // Queries para tomar uno de cada
+                var deportistaQuery = s.createQuery("FROM Deportista WHERE idDeportista = ?1", Deportista.class);
+                var deporteQuery = s.createQuery("FROM Deporte WHERE nombre = ?1", Deporte.class);
+                var equipoQuery = s.createQuery("FROM Equipo WHERE nombre = ?1", Equipo.class);
+                var olimpiadaQuery = s.createQuery("FROM Olimpiada WHERE nombre = ?1", Olimpiada.class);
+                var eventoQuery = s.createQuery(
+                        "FROM Evento WHERE olimpiada = :olimpiada"
+                        + " AND deporte = :deporte"
+                        + " AND nombre = :nombre", Evento.class);
+                var participacionQuery = s.createQuery(
+                        "FROM Participacion WHERE deportista = :deportista"
+                        +" AND evento = :evento", Participacion.class);
                 for (var e : elems) {
-                    var sel = s.createQuery("FROM deportista", Deportista.class).stream().filter(d -> d.getIdDeportista() == e.getId()).collect(Collectors.toCollection(ArrayList::new));
-                    Deportista deportista;
-                    if (sel.isEmpty()) {
+                    // Insertar deportista
+                    var deportista = deportistaQuery.setParameter(1, e.getId()).uniqueResult();
+                    if (deportista == null) {
                         deportista = new Deportista(
                                 e.getId(),
                                 e.getNombre(),
                                 e.getSexo(),
-                                e.getPeso().intValue(),
+                                e.getPeso() == null ? null : e.getPeso().intValue(),
                                 e.getAltura());
                         s.persist(deportista);
-                    } else {
-                        deportista = sel.getFirst();
                     }
-                    var deporte = new Deporte(
-                            e.getDeporte());
-                    s.persist(deporte);
-                    var equipo = new Equipo(
-                            e.getEquipo(),
-                            e.getNoc());
-                    s.persist(equipo);
-                    var olimpiada = new Olimpiada(
-                            e.getJuegos(),
-                            e.getAnio(),
-                            e.getTemporada(),
-                            e.getCiudad());
-                    s.persist(olimpiada);
-                    var evento = new Evento(
-                            e.getEvento(),
-                            olimpiada,
-                            deporte);
-                    s.persist(evento);
-                    var participacion = new Participacion(
-                            deportista,
-                            evento,
-                            equipo.getIdEquipo(),
-                            e.getEdad(),
-                            e.getMedalla());
-                    s.persist(participacion);
+                    // Insertar deporte
+                    var deporte = deporteQuery.setParameter(1, e.getDeporte()).uniqueResult();
+                    if (deporte == null) {
+                        deporte = new Deporte(e.getDeporte());
+                        s.persist(deporte);
+                    }
+                    // Insertar equipo
+                    var equipo = equipoQuery.setParameter(1, e.getEquipo()).uniqueResult();
+                    if (equipo == null) {
+                        equipo = new Equipo(e.getEquipo(), e.getNoc());
+                        s.persist(equipo);
+                    }
+                    // Insertar olimpiada
+                    var olimpiada = olimpiadaQuery.setParameter(1, e.getJuegos()).uniqueResult();
+                    if (olimpiada == null) {
+                        olimpiada = new Olimpiada(
+                                e.getJuegos(),
+                                e.getAnio(),
+                                e.getTemporada(),
+                                e.getCiudad());
+                        s.persist(olimpiada);
+                    }
+                    // Insertar evento
+                    var evento = eventoQuery
+                            .setParameter("nombre", e.getEvento())
+                            .setParameter("olimpiada", olimpiada)
+                            .setParameter("deporte", deporte).uniqueResult();
+                    if (evento == null) {
+                        evento = new Evento(e.getEvento(), olimpiada, deporte);
+                        s.persist(evento);
+                    }
+                    // Insertar participacion
+                    var participacion = participacionQuery
+                            .setParameter("deportista", deportista)
+                            .setParameter("evento", evento).uniqueResult();
+                    if (participacion == null) {
+                        participacion = new Participacion(
+                                deportista,
+                                evento,
+                                equipo.getIdEquipo(),
+                                e.getEdad(),
+                                e.getMedalla());
+                        s.persist(participacion);
+                    }
                 }
 
             } catch (IOException e) {

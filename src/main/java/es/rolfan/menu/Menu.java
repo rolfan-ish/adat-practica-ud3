@@ -3,6 +3,7 @@ package es.rolfan.menu;
 import java.io.FileReader;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public final class Menu {
@@ -35,6 +36,9 @@ public final class Menu {
         registerGetter(Integer.class, new IntegerArgGetter());
         registerGetter(String.class, new StringArgGetter());
         registerGetter(FileReader.class, new FileArgGetter());
+        registerGetter((Class<Supplier<Integer>>)(Class<?>) Supplier.class, new LazyIntegerArgGetter());
+        registerGetter((Class<Supplier<String>>)(Class<?>) Supplier.class, new LazyStringArgGetter());
+        registerGetter((Class<Supplier<FileReader>>)(Class<?>) Supplier.class, new LazyFileArgGetter());
     }
 
     public Menu(Object runner) {

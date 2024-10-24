@@ -14,11 +14,11 @@ public class Deportista {
 
     private String sexo;
 
-    private int peso;
+    private Integer peso;
 
-    private int altura;
+    private Integer altura;
 
-    public Deportista(int idDeportista, String nombre, String sexo, int peso, int altura) {
+    public Deportista(int idDeportista, String nombre, String sexo, Integer peso, Integer altura) {
         this.idDeportista = idDeportista;
         this.nombre = nombre;
         this.sexo = sexo;

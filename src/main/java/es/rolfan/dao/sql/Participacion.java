@@ -20,13 +20,14 @@ public class Participacion {
     public Participacion() {
     }
 
+    @Column(name = "id_equipo")
     private int idEquipo;
 
-    private int edad;
+    private Integer edad;
 
     private String medalla;
 
-    public Participacion(Deportista deportista, Evento evento, int idEquipo, int edad, String medalla) {
+    public Participacion(Deportista deportista, Evento evento, int idEquipo, Integer edad, String medalla) {
         this.deportista = deportista;
         this.evento = evento;
         this.idEquipo = idEquipo;
@@ -66,11 +67,11 @@ public class Participacion {
         this.idEquipo = idEquipo;
     }
 
-    public int getEdad() {
+    public Integer getEdad() {
         return edad;
     }
 
-    public void setEdad(int edad) {
+    public void setEdad(Integer edad) {
         this.edad = edad;
     }
 
