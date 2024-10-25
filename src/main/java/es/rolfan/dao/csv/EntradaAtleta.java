@@ -2,6 +2,8 @@ package es.rolfan.dao.csv;
 
 import com.opencsv.bean.CsvBindByName;
 
+import java.util.Optional;
+
 public class EntradaAtleta {
     @CsvBindByName(column = "ID", required = true)
     private int id;
@@ -64,8 +66,8 @@ public class EntradaAtleta {
         return altura;
     }
 
-    public Double getPeso() {
-        return peso;
+    public Optional<Double> getPeso() {
+        return Optional.ofNullable(peso);
     }
 
     public String getEquipo() {

@@ -1,6 +1,7 @@
 package es.rolfan.menu;
 
 import java.io.FileReader;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Supplier;
@@ -61,7 +62,7 @@ public final class Menu {
         getters.put(new ArgType(clazz), getter);
     }
 
-    public void runMenu() throws Throwable {
+    public void runMenu() {
         System.out.println(msg);
         var sel = sc.nextInt();
         if (sel < 0 || sel > ms.size() - 1) return;
@@ -74,7 +75,13 @@ public final class Menu {
             var p = params[i];
             if (p.isAnnotationPresent(Arg.class)) {
                 var a = p.getAnnotation(Arg.class);
-                var getter = a.getter().getConstructor().newInstance();
+                ArgGetter<?> getter = null;
+                try {
+                    getter = a.getter().getConstructor().newInstance();
+                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
+                    throw new RuntimeException(e);
+                }
                 objs[i] = getter.get(a.parameter(), p.getName());
             } else {
                 var getter = getters.get(new ArgType(p.getType()));
@@ -84,10 +91,14 @@ public final class Menu {
             }
         }
 
-        m.invoke(runner, objs);
+        try {
+            m.invoke(runner, objs);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public void runMenuForever() throws Throwable {
+    public void runMenuForever() {
         while (true) runMenu();
     }
 }

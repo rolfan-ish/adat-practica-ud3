@@ -2,6 +2,8 @@ package es.rolfan.dao.sql;
 
 import jakarta.persistence.*;
 
+import java.util.Objects;
+
 @Entity
 public class Participacion {
     @EmbeddedId
@@ -20,17 +22,18 @@ public class Participacion {
     public Participacion() {
     }
 
-    @Column(name = "id_equipo")
-    private int idEquipo;
+    @OneToOne
+    @JoinColumn(name = "id_equipo")
+    private Equipo equipo;
 
     private Integer edad;
 
     private String medalla;
 
-    public Participacion(Deportista deportista, Evento evento, int idEquipo, Integer edad, String medalla) {
+    public Participacion(Deportista deportista, Evento evento, Equipo equipo, Integer edad, String medalla) {
         this.deportista = deportista;
         this.evento = evento;
-        this.idEquipo = idEquipo;
+        this.equipo = equipo;
         this.edad = edad;
         this.medalla = medalla;
     }
@@ -59,12 +62,12 @@ public class Participacion {
         this.evento = evento;
     }
 
-    public int getIdEquipo() {
-        return idEquipo;
+    public Equipo getEquipo() {
+        return equipo;
     }
 
-    public void setIdEquipo(int idEquipo) {
-        this.idEquipo = idEquipo;
+    public void setEquipo(Equipo equipo) {
+        this.equipo = equipo;
     }
 
     public Integer getEdad() {
@@ -81,5 +84,17 @@ public class Participacion {
 
     public void setMedalla(String medalla) {
         this.medalla = medalla;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Participacion that)) return false;
+        return Objects.equals(deportista, that.deportista) && Objects.equals(evento, that.evento);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(deportista, evento);
     }
 }

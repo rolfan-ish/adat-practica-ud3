@@ -2,6 +2,8 @@ package es.rolfan.dao.sql;
 
 import jakarta.persistence.*;
 
+import java.util.Objects;
+
 @Entity
 public class Equipo {
     public Equipo() {
@@ -43,5 +45,17 @@ public class Equipo {
 
     public void setIniciales(String iniciales) {
         this.iniciales = iniciales;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Equipo equipo)) return false;
+        return Objects.equals(nombre, equipo.nombre);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(nombre);
     }
 }

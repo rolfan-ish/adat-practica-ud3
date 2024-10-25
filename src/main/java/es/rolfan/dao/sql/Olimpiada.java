@@ -2,6 +2,8 @@ package es.rolfan.dao.sql;
 
 import jakarta.persistence.*;
 
+import java.util.Objects;
+
 @Entity
 public class Olimpiada {
     @Id
@@ -65,5 +67,17 @@ public class Olimpiada {
 
     public void setCiudad(String ciudad) {
         this.ciudad = ciudad;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Olimpiada olimpiada)) return false;
+        return Objects.equals(nombre, olimpiada.nombre);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(nombre);
     }
 }

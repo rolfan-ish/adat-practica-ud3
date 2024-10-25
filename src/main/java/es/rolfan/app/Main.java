@@ -4,21 +4,41 @@ import com.opencsv.bean.CsvToBeanBuilder;
 import es.rolfan.dao.csv.EntradaAtleta;
 import es.rolfan.dao.sql.*;
 import es.rolfan.menu.Entry;
-import es.rolfan.menu.LazyCall;
+import es.rolfan.menu.Menu;
 import org.hibernate.SessionFactory;
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.query.MutationQuery;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.File;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.Scanner;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
+
+class Insertor<T> {
+    private final HashMap<T, T> map = new HashMap<>(1024);
+
+    public T add(T obj) {
+        var put = map.putIfAbsent(obj, obj);
+        return put == null ? obj : put;
+    }
+
+    public Stream<T> stream() {
+        return map.values().stream();
+    }
+}
 
 public class Main {
+    private static final String SCRIPT_SQL_INIT = "olimpiadas.sql";
     private static final StandardServiceRegistry registry;
     private static final SessionFactory factory;
+    private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     static {
         registry = new StandardServiceRegistryBuilder().build();
@@ -34,9 +54,7 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        // new Menu(new Main()).runMenuForever();
-        var archivoCsv = Main.class.getResource("athlete_events.csv");
-        new Main().crearBBDDMySQL(new LazyCall<>(() -> new FileReader(archivoCsv.getFile())));
+        new Menu(new Main()).runMenuForever();
     }
 
     @Entry(position = 0, description = "Salir del programa")
@@ -45,109 +63,87 @@ public class Main {
     }
 
     @Entry(position = 1, description = "Crear BBDD MySQL")
-    private void crearBBDDMySQL(Supplier<FileReader> csv) {
-        var url = getClass().getResource("olimpiadas.sql");
+    public void crearBBDDMySQL(Supplier<FileReader> csv) {
+        var url = getClass().getResource(SCRIPT_SQL_INIT);
         if (url == null) {
-            System.err.println("Falta el archivo sql");
+            log.error("Falta el archivo sql");
             return;
         }
         if (csv.get() == null) {
-            System.err.println("El archivo csv no existe");
+            log.error("El archivo csv no existe");
             return;
         }
 
-        factory.inTransaction(s -> {
-            try {
-                // Crear las tablas
-                var query = Files.readString(new File(url.getPath()).toPath()).split(";");
-                for (var q : query) {
-                    if (q.trim().isEmpty()) continue;
-                    s.createNativeMutationQuery(q).executeUpdate();
-                }
+        log.info("Creando tablas");
+        try {
+            var sc = new Scanner(new FileReader(url.getFile())).useDelimiter(";");
+            factory.inTransaction(s -> {
+                sc.tokens()
+                        .filter(q -> !q.isBlank())
+                        .map(s::createNativeMutationQuery)
+                        .forEach(MutationQuery::executeUpdate);
+            });
+        } catch (FileNotFoundException _) {
+            log.error("El archivo sql no se encontro");
+        }
 
-                // Extraer los datos del csv
-                var elems = new CsvToBeanBuilder<EntradaAtleta>(csv.get()).withType(EntradaAtleta.class).withFilter(fields -> {
+        log.info("Borrando contenidos de las tablas");
+        factory.inTransaction(s -> {
+            Stream.of(Deporte.class, Deportista.class, Equipo.class, Evento.class, Olimpiada.class, Participacion.class)
+                    .map(Class::getSimpleName)
+                    .map(n -> "DELETE FROM " + n)
+                    .map(s::createMutationQuery)
+                    .forEach(MutationQuery::executeUpdate);
+        });
+
+        log.info("Extrallendo datos del csv");
+        var elems = new CsvToBeanBuilder<EntradaAtleta>(new BufferedReader(csv.get()))
+                .withOrderedResults(false)
+                .withType(EntradaAtleta.class)
+                .withFilter(fields -> {
                     for (var i = 0; i < fields.length; i++)
                         if (fields[i].equals("NA"))
                             fields[i] = null;
                     return true;
                 }).build();
 
-                // Queries para tomar uno de cada
-                var deportistaQuery = s.createQuery("FROM Deportista WHERE idDeportista = ?1", Deportista.class);
-                var deporteQuery = s.createQuery("FROM Deporte WHERE nombre = ?1", Deporte.class);
-                var equipoQuery = s.createQuery("FROM Equipo WHERE nombre = ?1", Equipo.class);
-                var olimpiadaQuery = s.createQuery("FROM Olimpiada WHERE nombre = ?1", Olimpiada.class);
-                var eventoQuery = s.createQuery(
-                        "FROM Evento WHERE olimpiada = :olimpiada"
-                        + " AND deporte = :deporte"
-                        + " AND nombre = :nombre", Evento.class);
-                var participacionQuery = s.createQuery(
-                        "FROM Participacion WHERE deportista = :deportista"
-                        +" AND evento = :evento", Participacion.class);
-                for (var e : elems) {
-                    // Insertar deportista
-                    var deportista = deportistaQuery.setParameter(1, e.getId()).uniqueResult();
-                    if (deportista == null) {
-                        deportista = new Deportista(
-                                e.getId(),
-                                e.getNombre(),
-                                e.getSexo(),
-                                e.getPeso() == null ? null : e.getPeso().intValue(),
-                                e.getAltura());
-                        s.persist(deportista);
-                    }
-                    // Insertar deporte
-                    var deporte = deporteQuery.setParameter(1, e.getDeporte()).uniqueResult();
-                    if (deporte == null) {
-                        deporte = new Deporte(e.getDeporte());
-                        s.persist(deporte);
-                    }
-                    // Insertar equipo
-                    var equipo = equipoQuery.setParameter(1, e.getEquipo()).uniqueResult();
-                    if (equipo == null) {
-                        equipo = new Equipo(e.getEquipo(), e.getNoc());
-                        s.persist(equipo);
-                    }
-                    // Insertar olimpiada
-                    var olimpiada = olimpiadaQuery.setParameter(1, e.getJuegos()).uniqueResult();
-                    if (olimpiada == null) {
-                        olimpiada = new Olimpiada(
-                                e.getJuegos(),
-                                e.getAnio(),
-                                e.getTemporada(),
-                                e.getCiudad());
-                        s.persist(olimpiada);
-                    }
-                    // Insertar evento
-                    var evento = eventoQuery
-                            .setParameter("nombre", e.getEvento())
-                            .setParameter("olimpiada", olimpiada)
-                            .setParameter("deporte", deporte).uniqueResult();
-                    if (evento == null) {
-                        evento = new Evento(e.getEvento(), olimpiada, deporte);
-                        s.persist(evento);
-                    }
-                    // Insertar participacion
-                    var participacion = participacionQuery
-                            .setParameter("deportista", deportista)
-                            .setParameter("evento", evento).uniqueResult();
-                    if (participacion == null) {
-                        participacion = new Participacion(
-                                deportista,
-                                evento,
-                                equipo.getIdEquipo(),
-                                e.getEdad(),
-                                e.getMedalla());
-                        s.persist(participacion);
-                    }
-                }
+        var deportistas = new Insertor<Deportista>();
+        var deportes = new Insertor<Deporte>();
+        var equipos = new Insertor<Equipo>();
+        var olimpiadas = new Insertor<Olimpiada>();
+        var eventos = new Insertor<Evento>();
+        var participaciones = new Insertor<Participacion>();
 
-            } catch (IOException e) {
-                System.err.println("Ha ocurrido algun error en la carga");
-                return;
-            }
-            System.out.println("La carga de la información se ha realizado correctamente");
+        elems.stream().forEach(e -> {
+            var deportista = deportistas.add(new Deportista(
+                    e.getId(),
+                    e.getNombre(),
+                    e.getSexo(),
+                    e.getPeso().map(Double::intValue).orElse(null),
+                    e.getAltura()));
+            var deporte = deportes.add(new Deporte(e.getDeporte()));
+            var equipo = equipos.add(new Equipo(e.getEquipo(), e.getNoc()));
+            var olimpiada = olimpiadas.add(new Olimpiada(
+                    e.getJuegos(),
+                    e.getAnio(),
+                    e.getTemporada(),
+                    e.getCiudad()));
+            var evento = eventos.add(new Evento(e.getEvento(), olimpiada, deporte));
+            participaciones.add(new Participacion(
+                    deportista,
+                    evento,
+                    equipo,
+                    e.getEdad(),
+                    e.getMedalla()));
         });
+
+        log.info("Escribiendo a base de datos");
+        factory.inTransaction(s ->
+                Stream.of(deportistas, deportes, equipos, olimpiadas, eventos, participaciones)
+                        .map(Insertor::stream)
+                        .reduce(Stream.of(), Stream::concat)
+                        .forEach(s::persist));
+
+        log.info("Terminado exitosamente");
     }
 }

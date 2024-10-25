@@ -4,6 +4,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 
+import java.util.Objects;
+
 @Entity
 public class Deportista {
     @Id
@@ -67,5 +69,17 @@ public class Deportista {
 
     public void setAltura(int altura) {
         this.altura = altura;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Deportista that)) return false;
+        return idDeportista == that.idDeportista;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(idDeportista);
     }
 }
