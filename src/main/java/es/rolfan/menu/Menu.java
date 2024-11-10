@@ -1,98 +1,76 @@
 package es.rolfan.menu;
 
-import java.io.FileReader;
+import es.rolfan.menu.argument.*;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public final class Menu {
-    private static class ArgType {
-        private Class<?> clazz;
-
-        public ArgType(Class<?> clazz) {
-            this.clazz = clazz;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (!(o instanceof ArgType a)) return false;
-            return clazz.isAssignableFrom(a.clazz);
-        }
-
-        @Override
-        public int hashCode() {
-            return clazz.hashCode();
-        }
-    }
-
-    private final ArrayList<Method> ms;
+    private final Map<String, Method> ms;
     private final String msg;
     private final Scanner sc = new Scanner(System.in);
-    private static final HashMap<ArgType, ArgGetter<?>> getters = new HashMap<>();
-    private final Object runner;
 
-    static {
-        registerGetter(Integer.class, new IntegerArgGetter());
-        registerGetter(String.class, new StringArgGetter());
-        registerGetter(FileReader.class, new FileArgGetter());
-        registerGetter((Class<Supplier<Integer>>)(Class<?>) Supplier.class, new LazyIntegerArgGetter());
-        registerGetter((Class<Supplier<String>>)(Class<?>) Supplier.class, new LazyStringArgGetter());
-        registerGetter((Class<Supplier<FileReader>>)(Class<?>) Supplier.class, new LazyFileArgGetter());
-    }
+    private final Object runner;
 
     public Menu(Object runner) {
         this.runner = runner;
         var msgBuilder = new StringBuilder();
-        ms = Arrays.stream(runner.getClass().getDeclaredMethods())
+        ms = Arrays.stream(runner.getClass().getMethods())
                 .filter(m -> m.isAnnotationPresent(Entry.class))
-                .sorted(Comparator.comparingInt(m -> m.getAnnotation(Entry.class).position()))
+                // unsigned sort
+                .sorted((m, n) -> Integer.compareUnsigned(
+                        m.getAnnotation(Entry.class).pos(),
+                        n.getAnnotation(Entry.class).pos()))
                 // Build prompt
                 .peek(m -> {
                     m.setAccessible(true);
                     var e = m.getAnnotation(Entry.class);
-                    msgBuilder.append(e.position()).append(". ").append(e.description()).append('\n');
+                    msgBuilder.append(e.key()).append(". ").append(e.desc()).append('\n');
                 })
-                .collect(Collectors.toCollection(ArrayList::new));
+                .collect(Collectors.toMap(m -> m.getAnnotation(Entry.class).key(), m -> m));
         msg = msgBuilder.toString();
-    }
-
-    public static <T> void registerGetter(Class<T> clazz, ArgGetter<T> getter) {
-        getters.put(new ArgType(clazz), getter);
     }
 
     public void runMenu() {
         System.out.println(msg);
-        var sel = sc.nextInt();
-        if (sel < 0 || sel > ms.size() - 1) return;
-        var m = ms.get(sel);
+        var m = ms.get(sc.nextLine());
+        if (m == null) return;
 
         // Get arguments for the method
         var params = m.getParameters();
-        var objs = new Object[params.length];
+        var objs = new Callable[params.length];
         for (var i = 0; i < params.length; i++) {
             var p = params[i];
+
+            // Get type parameter
+            var ptype = (ParameterizedType)p.getType().getGenericSuperclass();
+            var type = (Class<?>)ptype.getActualTypeArguments()[0];
+
+            ArgGetter<?> argGetter;
+            String value;
             if (p.isAnnotationPresent(Arg.class)) {
                 var a = p.getAnnotation(Arg.class);
-                ArgGetter<?> getter = null;
+                value = a.value();
                 try {
-                    getter = a.getter().getConstructor().newInstance();
+                    argGetter = a.getter().getConstructor().newInstance().build(type);
                 } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                          NoSuchMethodException e) {
                     throw new RuntimeException(e);
                 }
-                objs[i] = getter.get(a.parameter(), p.getName());
             } else {
-                var getter = getters.get(new ArgType(p.getType()));
-                if (getter == null)
-                    throw new RuntimeException("MENU ARGUMENT READER: No se puede leer el parametro \"" + p.getName() + "\" pues no tiene lector");
-                objs[i] = getter.get("", p.getName());
+                argGetter = DefaultArgGetterFactory.get(type);
+                value = "";
             }
+            objs[i] = () -> argGetter.get(value, p.getName());
         }
 
         try {
-            m.invoke(runner, objs);
+            m.invoke(runner, (Object[]) objs);
         } catch (IllegalAccessException | InvocationTargetException e) {
             throw new RuntimeException(e);
         }

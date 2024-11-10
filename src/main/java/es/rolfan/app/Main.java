@@ -1,54 +1,42 @@
 package es.rolfan.app;
 
 import com.opencsv.bean.CsvToBeanBuilder;
-import es.rolfan.dao.csv.EntradaAtleta;
-import es.rolfan.dao.sql.*;
 import es.rolfan.menu.Entry;
 import es.rolfan.menu.Menu;
+import es.rolfan.model.csv.EntradaAtleta;
+import es.rolfan.model.sql.*;
+import jakarta.persistence.Id;
+import org.hibernate.Hibernate;
 import org.hibernate.SessionFactory;
+import org.hibernate.annotations.processing.Find;
+import org.hibernate.annotations.processing.HQL;
 import org.hibernate.boot.MetadataSources;
-import org.hibernate.boot.registry.StandardServiceRegistry;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.query.MutationQuery;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.util.HashMap;
+import java.lang.reflect.Field;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Scanner;
-import java.util.function.Supplier;
+import java.util.concurrent.Callable;
 import java.util.stream.Stream;
-
-class Insertor<T> {
-    private final HashMap<T, T> map = new HashMap<>(1024);
-
-    public T add(T obj) {
-        var put = map.putIfAbsent(obj, obj);
-        return put == null ? obj : put;
-    }
-
-    public Stream<T> stream() {
-        return map.values().stream();
-    }
-}
 
 public class Main {
     private static final String SCRIPT_SQL_INIT = "olimpiadas.sql";
-    private static final StandardServiceRegistry registry;
     private static final SessionFactory factory;
-    private static final Logger log = LoggerFactory.getLogger(Main.class);
 
     static {
-        registry = new StandardServiceRegistryBuilder().build();
+        var registry = new StandardServiceRegistryBuilder().build();
         try {
             factory = new MetadataSources(registry)
                     .addAnnotatedClasses(Deporte.class, Deportista.class, Equipo.class, Evento.class, Olimpiada.class, Participacion.class)
                     .buildMetadata()
                     .buildSessionFactory();
         } catch (Exception e) {
-            StandardServiceRegistryBuilder.destroy(registry);
+            e.printStackTrace();
             throw e;
         }
     }
@@ -57,24 +45,110 @@ public class Main {
         new Menu(new Main()).runMenuForever();
     }
 
-    @Entry(position = 0, description = "Salir del programa")
+    @Entry(key = "0", desc = "Salir del programa")
     private void salir() {
         System.exit(0);
     }
 
-    @Entry(position = 1, description = "Crear BBDD MySQL")
-    public void crearBBDDMySQL(Supplier<FileReader> csv) {
-        var url = getClass().getResource(SCRIPT_SQL_INIT);
-        if (url == null) {
-            log.error("Falta el archivo sql");
-            return;
+    @Entry(key = "2", pos = 2, desc = "Listado deportistas")
+    public void listadoDeportistas() {
+        factory.inTransaction(s ->
+                s.createSelectionQuery("FROM Deportista", Deportista.class)
+                        .stream()
+                        .forEach(d -> {
+                            System.out.format("Nombre: %s, Sexo: %s, Altura: %s, Peso: %s\n",
+                                    d.getNombre(), d.getSexo(), d.getAltura(), d.getPeso());
+                            d.getParticipaciones()
+                                    .forEach(p -> {
+                                        System.out.format("\tDeporte: %s, Edad: %d, Evento: %s, Equipo: %s, Juegos: %s, Medalla: %s\n",
+                                                p.getEvento().getDeporte().getNombre(), p.getEdad(), p.getEvento().getNombre(),
+                                                p.getEquipo().getNombre(), p.getEvento().getOlimpiada().getNombre(), p.getMedalla());
+                                    });
+                        }));
+    }
+
+    private static <T> T getCodigo(Callable<Integer> codigoGetter, Class<T> clazz) {
+        try (var em = factory.createEntityManager()) {
+            int cod = codigoGetter.call();
+            var fields = clazz.getDeclaredFields();
+            var id = Arrays.stream(fields)
+                    .filter(f -> f.isAnnotationPresent(jakarta.persistence.Id.class))
+                    .map(f -> f.getAnnotation(jakarta.persistence.Column.class).name())
+                    .findFirst().orElseThrow();
+            return em.createQuery("FROM Olimpiada WHERE " + id + " = :id", clazz)
+                    .setParameter("id", cod)
+                    .getSingleResult();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
-        if (csv.get() == null) {
-            log.error("El archivo csv no existe");
+    }
+
+    @Entry(key = "3", pos = 3, desc = "Listado de deportistas participantes")
+    public void listadoDeDeportistasParticipantes(Callable<String> temporada, Callable<Integer> codigoNumerico) {
+        String tempo;
+        try {
+            tempo = temporada.call();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        String temp;
+        if ("winter".startsWith(tempo.toLowerCase())) {
+            temp = "Winter";
+        } else if ("summer".startsWith(tempo.toLowerCase())) {
+            temp = "Summer";
+        } else {
+            System.err.println("Temporada invalida");
             return;
         }
 
-        log.info("Creando tablas");
+        factory.inTransaction(s -> {
+            var olimpiadaList = s.createSelectionQuery("FROM Olimpiada WHERE temporada = :temporada", Olimpiada.class)
+                    .setParameter("temporada", temp)
+                    .getResultList();
+
+            for (var o : olimpiadaList) {
+                System.out.println(o.getIdOlimpiada() + ". " + o.getNombre());
+            }
+            var olim = getCodigo(codigoNumerico, Olimpiada.class);
+            if (olim == null) {
+                System.err.println("Codigo invalido");
+                return;
+            }
+
+            for (var e : olim.getEventos()) {
+                System.out.println(e.getDeporte().getIdDeporte() + ". " + e.getDeporte().getNombre());
+            }
+            var depor = getCodigo(codigoNumerico, Deporte.class);
+            if (depor == null) {
+                System.err.println("Codigo invalido");
+                return;
+            }
+
+            for (var e : depor.getEventos()) {
+                System.out.println(e.getIdEvento()+ ". " + e.getNombre());
+            }
+            var even = getCodigo(codigoNumerico, Evento.class);
+            if (even == null) {
+                System.err.println("Codigo invalido");
+                return;
+            }
+
+
+
+        }
+
+    }
+
+
+    @Entry(key = "1", pos = 1, desc = "Crear BBDD MySQL")
+    public void crearBBDDMySQL(Callable<FileReader> archivoCsv) {
+        var url = getClass().getResource(SCRIPT_SQL_INIT);
+        if (url == null) {
+            System.err.println("Falta el archivo sql");
+            return;
+        }
+
+        System.out.println("Creando tablas");
         try {
             var sc = new Scanner(new FileReader(url.getFile())).useDelimiter(";");
             factory.inTransaction(s -> {
@@ -84,10 +158,10 @@ public class Main {
                         .forEach(MutationQuery::executeUpdate);
             });
         } catch (FileNotFoundException _) {
-            log.error("El archivo sql no se encontro");
+            System.err.println("El archivo sql no se encontro");
         }
 
-        log.info("Borrando contenidos de las tablas");
+        System.out.println("Borrando contenidos de las tablas");
         factory.inTransaction(s -> {
             Stream.of(Deporte.class, Deportista.class, Equipo.class, Evento.class, Olimpiada.class, Participacion.class)
                     .map(Class::getSimpleName)
@@ -96,8 +170,19 @@ public class Main {
                     .forEach(MutationQuery::executeUpdate);
         });
 
-        log.info("Extrallendo datos del csv");
-        var elems = new CsvToBeanBuilder<EntradaAtleta>(new BufferedReader(csv.get()))
+
+        FileReader fichero;
+        try {
+            fichero = archivoCsv.call();
+        } catch (FileNotFoundException e) {
+            System.err.println("El fichero csv no se encontro");
+            return;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        System.out.println("Extrallendo datos del csv");
+        var elems = new CsvToBeanBuilder<EntradaAtleta>(new BufferedReader(fichero))
                 .withOrderedResults(false)
                 .withType(EntradaAtleta.class)
                 .withFilter(fields -> {
@@ -114,12 +199,12 @@ public class Main {
         var eventos = new Insertor<Evento>();
         var participaciones = new Insertor<Participacion>();
 
-        elems.stream().forEach(e -> {
+        elems.forEach(e -> {
             var deportista = deportistas.add(new Deportista(
                     e.getId(),
                     e.getNombre(),
                     e.getSexo(),
-                    e.getPeso().map(Double::intValue).orElse(null),
+                    e.getPeso() == null ? null : e.getPeso().intValue(),
                     e.getAltura()));
             var deporte = deportes.add(new Deporte(e.getDeporte()));
             var equipo = equipos.add(new Equipo(e.getEquipo(), e.getNoc()));
@@ -137,13 +222,14 @@ public class Main {
                     e.getMedalla()));
         });
 
-        log.info("Escribiendo a base de datos");
-        factory.inTransaction(s ->
+        System.out.println("Escribiendo a base de datos");
+        factory.inStatelessTransaction(s ->
                 Stream.of(deportistas, deportes, equipos, olimpiadas, eventos, participaciones)
                         .map(Insertor::stream)
-                        .reduce(Stream.of(), Stream::concat)
-                        .forEach(s::persist));
+                        .reduce(Stream::concat)
+                        .get().forEach(s::insert));
 
-        log.info("Terminado exitosamente");
+
+        System.out.println("Terminado exitosamente");
     }
 }

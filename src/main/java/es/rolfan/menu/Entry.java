@@ -8,6 +8,7 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Entry {
-    int position();
-    String description();
+    String key();
+    String desc();
+    int pos() default 0;
 }

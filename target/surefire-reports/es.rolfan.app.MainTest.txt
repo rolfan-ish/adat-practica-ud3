@@ -1,0 +1,65 @@
+-------------------------------------------------------------------------------
+Test set: es.rolfan.app.MainTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 1, Skipped: 0, Time elapsed: 0.683 s <<< FAILURE! -- in es.rolfan.app.MainTest
+es.rolfan.app.MainTest -- Time elapsed: 0.683 s <<< ERROR!
+java.lang.ExceptionInInitializerError
+	at es.rolfan.app@1.0-SNAPSHOT/es.rolfan.app.MainTest.setUp(MainTest.java:13)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1597)
+Caused by: org.hibernate.service.spi.ServiceException: Unable to create requested service [org.hibernate.engine.jdbc.env.spi.JdbcEnvironment] due to: Error calling Driver.connect() [Socket fail to connect to address=(host=localhost)(port=3306)(type=primary). Connection refused] [Socket fail to connect to address=(host=localhost)(port=3306)(type=primary). Connection refused] [n/a]
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.createService(AbstractServiceRegistryImpl.java:276)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.initializeService(AbstractServiceRegistryImpl.java:238)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.getService(AbstractServiceRegistryImpl.java:215)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.model.relational.Database.<init>(Database.java:45)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.internal.InFlightMetadataCollectorImpl.getDatabase(InFlightMetadataCollectorImpl.java:226)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.internal.InFlightMetadataCollectorImpl.<init>(InFlightMetadataCollectorImpl.java:194)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.model.process.spi.MetadataBuildingProcess.complete(MetadataBuildingProcess.java:171)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.model.process.spi.MetadataBuildingProcess.build(MetadataBuildingProcess.java:129)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.internal.MetadataBuilderImpl.build(MetadataBuilderImpl.java:449)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.internal.MetadataBuilderImpl.build(MetadataBuilderImpl.java:101)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.MetadataSources.buildMetadata(MetadataSources.java:210)
+	at es.rolfan.app@1.0-SNAPSHOT/es.rolfan.app.Main.<clinit>(Main.java:51)
+	... 3 more
+Caused by: org.hibernate.exception.JDBCConnectionException: Error calling Driver.connect() [Socket fail to connect to address=(host=localhost)(port=3306)(type=primary). Connection refused] [Socket fail to connect to address=(host=localhost)(port=3306)(type=primary). Connection refused] [n/a]
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:51)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:94)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.BasicConnectionCreator.convertSqlException(BasicConnectionCreator.java:135)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverConnectionCreator.makeConnection(DriverConnectionCreator.java:43)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.BasicConnectionCreator.createConnection(BasicConnectionCreator.java:61)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl$PooledConnections.addConnections(DriverManagerConnectionProviderImpl.java:507)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl$PooledConnections.<init>(DriverManagerConnectionProviderImpl.java:380)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl$PooledConnections$Builder.build(DriverManagerConnectionProviderImpl.java:558)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl.buildPool(DriverManagerConnectionProviderImpl.java:107)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl.configure(DriverManagerConnectionProviderImpl.java:87)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.registry.internal.StandardServiceRegistryImpl.configureService(StandardServiceRegistryImpl.java:136)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.initializeService(AbstractServiceRegistryImpl.java:247)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.getService(AbstractServiceRegistryImpl.java:215)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.ServiceRegistry.requireService(ServiceRegistry.java:68)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.buildJdbcConnectionAccess(JdbcEnvironmentInitiator.java:434)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.getJdbcEnvironmentUsingJdbcMetadata(JdbcEnvironmentInitiator.java:305)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:129)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.env.internal.JdbcEnvironmentInitiator.initiateService(JdbcEnvironmentInitiator.java:81)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.boot.registry.internal.StandardServiceRegistryImpl.initiateService(StandardServiceRegistryImpl.java:130)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.service.internal.AbstractServiceRegistryImpl.createService(AbstractServiceRegistryImpl.java:263)
+	... 14 more
+Caused by: java.sql.SQLNonTransientConnectionException: Socket fail to connect to address=(host=localhost)(port=3306)(type=primary). Connection refused
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.client.impl.ConnectionHelper.connectSocket(ConnectionHelper.java:122)
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.client.impl.StandardClient.<init>(StandardClient.java:129)
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.Driver.connect(Driver.java:68)
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.Driver.connect(Driver.java:92)
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.Driver.connect(Driver.java:26)
+	at org.hibernate.orm.core@6.6.1.Final/org.hibernate.engine.jdbc.connections.internal.DriverConnectionCreator.makeConnection(DriverConnectionCreator.java:40)
+	... 30 more
+Caused by: java.net.ConnectException: Connection refused
+	at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+	at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:682)
+	at java.base/sun.nio.ch.NioSocketImpl.timedFinishConnect(NioSocketImpl.java:542)
+	at java.base/sun.nio.ch.NioSocketImpl.connect(NioSocketImpl.java:592)
+	at java.base/java.net.SocksSocketImpl.connect(SocksSocketImpl.java:327)
+	at java.base/java.net.Socket.connect(Socket.java:760)
+	at org.mariadb.jdbc@3.4.1/org.mariadb.jdbc.client.impl.ConnectionHelper.connectSocket(ConnectionHelper.java:116)
+	... 35 more
+
