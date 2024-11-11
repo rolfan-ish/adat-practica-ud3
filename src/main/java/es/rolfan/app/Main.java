@@ -15,9 +15,7 @@ import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.query.MutationQuery;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.*;
 import java.util.Scanner;
 import java.util.concurrent.Callable;
 import java.util.stream.Stream;
@@ -168,6 +166,7 @@ public class Main {
                                                @Arg(getter = IntegerArgGetter.class) Callable<Integer> codigoOlimpiada,
                                                @Arg(getter = IntegerArgGetter.class) Callable<Integer> codigoDeporte,
                                                @Arg(getter = IntegerArgGetter.class) Callable<Integer> codigoEvento,
+                                               @Arg(getter = IntegerArgGetter.class) Callable<Integer> codigoEquipo,
                                                @Arg(getter = StringArgGetter.class) Callable<String> nombreDeportista,
                                                @Arg(getter = StringArgGetter.class) Callable<String> sexoDeportista) {
         String texto;
@@ -238,7 +237,14 @@ public class Main {
             if (even == null)
                 return;
 
-            var part = new Participacion(deportista, even, , null, null);
+            s.createSelectionQuery("FROM Equipo", Equipo.class)
+                    .stream()
+                    .forEach(e -> System.out.println(e.getIdEquipo() + ". " + e.getNombre()));
+            var equipo = getCodigo(s, codigoEquipo, Equipo.class);
+            if (equipo == null)
+                return;
+
+            var part = new Participacion(deportista, even, equipo, null, null);
             s.persist(part);
         });
     }
@@ -277,7 +283,7 @@ public class Main {
     }
 
     @Entry(key = "1", pos = 1, desc = "Crear BBDD MySQL")
-    public void crearBBDDMySQL(@Arg(getter = FileArgGetter.class) Callable<FileReader> archivoCsv) {
+    public void crearBBDDMySQL(@Arg(getter = FileArgGetter.class) Callable<InputStream> archivoCsv) {
         var url = getClass().getResource(SCRIPT_SQL_INIT);
         if (url == null) {
             System.err.println("Falta el archivo sql");
@@ -302,7 +308,7 @@ public class Main {
                     .forEach(q -> s.createMutationQuery(q).executeUpdate());
         });
 
-        FileReader fichero;
+        InputStream fichero;
         try {
             fichero = archivoCsv.call();
         } catch (FileNotFoundException e) {
@@ -313,7 +319,7 @@ public class Main {
         }
 
         System.out.println("Extrallendo datos del csv");
-        var elems = new CsvToBeanBuilder<EntradaAtleta>(new BufferedReader(fichero))
+        var elems = new CsvToBeanBuilder<EntradaAtleta>(new InputStreamReader(fichero))
                 .withOrderedResults(false)
                 .withType(EntradaAtleta.class)
                 .withFilter(fields -> {

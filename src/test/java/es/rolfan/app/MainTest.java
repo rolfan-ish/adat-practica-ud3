@@ -1,6 +1,5 @@
 package es.rolfan.app;
 
-import es.rolfan.menu.argument.IntegerArgGetter;
 import es.rolfan.model.sql.*;
 import org.hibernate.query.MutationQuery;
 import org.junit.jupiter.api.BeforeAll;
@@ -8,8 +7,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.util.Scanner;
 import java.util.stream.Stream;
 
@@ -62,12 +59,8 @@ class MainTest {
 
     @Test
     void cargarDatos() {
-        var archivoCsv = Main.class.getResource("athlete_events.csv");
-        m.crearBBDDMySQL(() -> {
-            if (archivoCsv == null)
-                throw new FileNotFoundException();
-            return new FileReader(archivoCsv.getFile());
-        });
+        var archivoCsv = Main.class.getResourceAsStream("athlete_events.csv");
+        m.crearBBDDMySQL(() -> archivoCsv);
     }
 
     @Test
@@ -83,10 +76,20 @@ class MainTest {
     @Test
     void testAniadirNuevoDeportistaParticipacion() {
         var nuevoEvento = new Evento("nuevo", olimpiada, deporte);
-        Main.factory.inTransaction(s -> s.persist(nuevoEvento));
+        long siz;
+        try (var em = Main.factory.createEntityManager()) {
+            em.getTransaction().begin();
+            siz = em.createQuery("SELECT COUNT(*) FROM Deportista", Long.class).getSingleResult();
+            em.persist(nuevoEvento);
+            em.getTransaction().commit();
+        }
         m.aniadirDeportistaParticipacion(() -> "", () -> 0, () -> "w",
-                () -> olimpiada.getIdOlimpiada(), () -> deporte.getIdDeporte(), nuevoEvento::getIdEvento,
+                olimpiada::getIdOlimpiada, deporte::getIdDeporte, nuevoEvento::getIdEvento, equipo::getIdEquipo,
                 () -> "juan", () -> "m");
+        Main.factory.inTransaction(s -> {
+            var count = s.createSelectionQuery("SELECT COUNT(*) FROM Deportista", Long.class).getSingleResult();
+            assertEquals(siz + 1, count);
+        });
     }
 
     @Test
@@ -100,9 +103,9 @@ class MainTest {
             em.persist(nuevoEvento);
             em.getTransaction().commit();
         }
-
         m.aniadirDeportistaParticipacion(() -> "%", deportista::getIdDeportista, () -> "w",
-                olimpiada::getIdOlimpiada, deporte::getIdDeporte, nuevoEvento::getIdEvento, () -> null, () -> null);
+                olimpiada::getIdOlimpiada, deporte::getIdDeporte, nuevoEvento::getIdEvento, equipo::getIdEquipo,
+                () -> null, () -> null);
         Main.factory.inTransaction(s -> {
             s.refresh(deportista);
             assertEquals(siz + 1, deportista.getParticipaciones().size());
@@ -119,12 +122,24 @@ class MainTest {
 
     @Test
     void eliminarParticipacion() {
-        m.eliminarParticipacion(() -> "DEPORTISTA", () -> 1, () -> 1);
-        m.eliminarParticipacion(() -> "DEPORTISTA", () -> 1, () -> 2);
+        m.eliminarParticipacion(deportista::getNombre, deportista::getIdDeportista, participacion1.getId()::idEvento);
+        m.eliminarParticipacion(deportista::getNombre, deportista::getIdDeportista, participacion2.getId()::idEvento);
+        Main.factory.inTransaction(s -> {
+            var deportitas = s.createSelectionQuery("SELECT COUNT(*) FROM Deportista", Long.class).getSingleResult();
+            var participaciones = s.createSelectionQuery("SELECT COUNT(*) FROM Participacion", Long.class).getSingleResult();
+            assertEquals(0, deportitas);
+            assertEquals(0, participaciones);
+        });
     }
 
     @Test
     void eliminarParticipacionUnica() {
-        m.eliminarParticipacion(() -> "DEPORTISTA", () -> 1, () -> 1899);
+        m.eliminarParticipacion(deportista::getNombre, deportista::getIdDeportista, participacion1.getId()::idEvento);
+        Main.factory.inTransaction(s -> {
+            var deportitas = s.createSelectionQuery("SELECT COUNT(*) FROM Deportista", Long.class).getSingleResult();
+            var participaciones = s.createSelectionQuery("SELECT COUNT(*) FROM Participacion", Long.class).getSingleResult();
+            assertEquals(1, deportitas);
+            assertEquals(1, participaciones);
+        });
     }
 }
