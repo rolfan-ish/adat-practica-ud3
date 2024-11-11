@@ -9,5 +9,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.PARAMETER)
 public @interface Arg {
     String value() default "";
-    Class<? extends ArgGetterFactory> getter() default DefaultArgGetterFactory.class;
+    Class<? extends ArgGetter<?>> getter();
 }

@@ -9,6 +9,7 @@ import java.util.Set;
 public class Deportista {
     @Id
     @Column(name = "id_deportista")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int idDeportista;
 
     private String nombre;
@@ -19,12 +20,16 @@ public class Deportista {
     @OneToMany(mappedBy = "deportista")
     private Set<Participacion> participaciones;
 
-    public Deportista(int idDeportista, String nombre, String sexo, Integer peso, Integer altura) {
-        this.idDeportista = idDeportista;
+    public Deportista(String nombre, String sexo, Integer peso, Integer altura) {
         this.nombre = nombre;
         this.sexo = sexo;
         this.peso = peso;
         this.altura = altura;
+    }
+
+    public Deportista(int idDeportista, String nombre, String sexo, Integer peso, Integer altura) {
+        this(nombre, sexo, peso, altura);
+        this.idDeportista = idDeportista;
     }
 
     public Deportista() {

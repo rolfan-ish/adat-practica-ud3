@@ -22,7 +22,7 @@ public class Participacion {
     public Participacion() {
     }
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "id_equipo")
     private Equipo equipo;
 

@@ -1,13 +1,14 @@
 package es.rolfan.menu;
 
-import es.rolfan.menu.argument.*;
+import es.rolfan.menu.argument.Arg;
+import es.rolfan.menu.argument.ArgGetter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.Callable;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public final class Menu {
@@ -46,25 +47,17 @@ public final class Menu {
         var objs = new Callable[params.length];
         for (var i = 0; i < params.length; i++) {
             var p = params[i];
+            if (!p.isAnnotationPresent(Arg.class))
+                throw new RuntimeException("Todos los parametros del menu tienen que estar anotados");
+            var a = p.getAnnotation(Arg.class);
 
-            // Get type parameter
-            var ptype = (ParameterizedType)p.getType().getGenericSuperclass();
-            var type = (Class<?>)ptype.getActualTypeArguments()[0];
-
+            var value = a.value();
             ArgGetter<?> argGetter;
-            String value;
-            if (p.isAnnotationPresent(Arg.class)) {
-                var a = p.getAnnotation(Arg.class);
-                value = a.value();
-                try {
-                    argGetter = a.getter().getConstructor().newInstance().build(type);
-                } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                         NoSuchMethodException e) {
-                    throw new RuntimeException(e);
-                }
-            } else {
-                argGetter = DefaultArgGetterFactory.get(type);
-                value = "";
+            try {
+                argGetter = a.getter().getConstructor().newInstance();
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                     NoSuchMethodException e) {
+                throw new RuntimeException(e);
             }
             objs[i] = () -> argGetter.get(value, p.getName());
         }

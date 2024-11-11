@@ -3,6 +3,7 @@ package es.rolfan.model.sql;
 import jakarta.persistence.*;
 
 import java.util.Objects;
+import java.util.Set;
 
 @Entity
 public class Evento {
@@ -16,6 +17,10 @@ public class Evento {
     public Evento() {
     }
 
+    public Set<Participacion> getParticipaciones() {
+        return participaciones;
+    }
+
     @ManyToOne
     @JoinColumn(name = "id_olimpiada")
     private Olimpiada olimpiada;
@@ -23,6 +28,9 @@ public class Evento {
     @ManyToOne
     @JoinColumn(name = "id_deporte")
     private Deporte deporte;
+
+    @OneToMany(mappedBy = "evento")
+    private Set<Participacion> participaciones;
 
     public Evento(String nombre, Olimpiada olimpiada, Deporte deporte) {
         this.nombre = nombre;
